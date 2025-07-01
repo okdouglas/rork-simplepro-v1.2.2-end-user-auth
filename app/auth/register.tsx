@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Eye, EyeOff } from 'lucide-react-native';
+import { Eye, EyeOff, AlertCircle } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { theme } from '@/constants/theme';
 import Button from '@/components/Button';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore, validatePassword, ADMIN_TEST_CREDENTIALS } from '@/store/authStore';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -33,14 +33,21 @@ export default function RegisterScreen() {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email';
+    } else if (formData.email.toLowerCase().trim() === ADMIN_TEST_CREDENTIALS.email) {
+      newErrors.email = 'Cannot register with admin email address';
     }
     
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
-    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
-      newErrors.password = 'Password must contain uppercase, lowercase, and number';
+    // Use centralized password validation for basic checks
+    const basicPasswordError = validatePassword(formData.password, false);
+    if (basicPasswordError) {
+      newErrors.password = basicPasswordError;
+    } else {
+      // Additional validation for user registration (stricter than login)
+      if (formData.password.length < 8) {
+        newErrors.password = 'Password must be at least 8 characters for new accounts';
+      } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
+        newErrors.password = 'Password must contain uppercase, lowercase, and number';
+      }
     }
     
     if (!formData.confirmPassword) {
@@ -64,7 +71,7 @@ export default function RegisterScreen() {
       );
       router.push('/auth/verify-email');
     } catch (error) {
-      Alert.alert('Registration Failed', 'An error occurred during registration. Please try again.');
+      Alert.alert('Registration Failed', (error as Error).message || 'An error occurred during registration. Please try again.');
     }
   };
 
@@ -78,6 +85,8 @@ export default function RegisterScreen() {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
+
+  const isAdminEmail = formData.email.toLowerCase().trim() === ADMIN_TEST_CREDENTIALS.email;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -109,7 +118,11 @@ export default function RegisterScreen() {
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Email</Text>
                 <TextInput
-                  style={[styles.input, errors.email && styles.inputError]}
+                  style={[
+                    styles.input, 
+                    errors.email && styles.inputError,
+                    isAdminEmail && styles.adminWarningInput
+                  ]}
                   placeholder="Enter your email"
                   placeholderTextColor={colors.gray[400]}
                   value={formData.email}
@@ -118,6 +131,14 @@ export default function RegisterScreen() {
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
+                {isAdminEmail && (
+                  <View style={styles.adminWarning}>
+                    <AlertCircle size={16} color={colors.error} />
+                    <Text style={styles.adminWarningText}>
+                      Admin email cannot be used for registration
+                    </Text>
+                  </View>
+                )}
                 {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
               </View>
 
@@ -145,6 +166,9 @@ export default function RegisterScreen() {
                     )}
                   </TouchableOpacity>
                 </View>
+                <Text style={styles.passwordRequirements}>
+                  Password must be at least 8 characters with uppercase, lowercase, and number
+                </Text>
                 {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
               </View>
 
@@ -199,6 +223,13 @@ export default function RegisterScreen() {
               <TouchableOpacity onPress={handleSignIn}>
                 <Text style={styles.signInText}>Sign In</Text>
               </TouchableOpacity>
+            </View>
+
+            <View style={styles.adminNote}>
+              <Text style={styles.adminNoteText}>
+                Note: Admin accounts cannot be created through registration.{'\n'}
+                Use the admin login credentials on the sign-in page.
+              </Text>
             </View>
           </View>
         </ScrollView>
@@ -263,6 +294,10 @@ const styles = StyleSheet.create({
   inputError: {
     borderColor: colors.error,
   },
+  adminWarningInput: {
+    borderColor: colors.error,
+    borderWidth: 2,
+  },
   passwordContainer: {
     position: 'relative',
   },
@@ -280,6 +315,23 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: theme.spacing.md,
     top: 15,
+  },
+  passwordRequirements: {
+    fontSize: 12,
+    color: colors.gray[500],
+    marginTop: theme.spacing.xs,
+    fontStyle: 'italic',
+  },
+  adminWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: theme.spacing.xs,
+  },
+  adminWarningText: {
+    fontSize: 12,
+    color: colors.error,
+    fontWeight: '500',
+    marginLeft: theme.spacing.xs,
   },
   errorText: {
     fontSize: 14,
@@ -306,6 +358,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: theme.spacing.lg,
   },
   footerText: {
     fontSize: 16,
@@ -315,5 +368,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.primary,
     fontWeight: '500',
+  },
+  adminNote: {
+    backgroundColor: colors.gray[50],
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  adminNoteText: {
+    fontSize: 12,
+    color: colors.gray[600],
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });

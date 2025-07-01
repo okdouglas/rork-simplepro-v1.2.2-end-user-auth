@@ -6,6 +6,7 @@ export interface User {
   id: string;
   email: string;
   emailVerified: boolean;
+  userType: 'admin' | 'user';
   subscriptionTier: 'free' | 'basic' | 'pro' | 'enterprise';
   subscriptionStatus: 'active' | 'canceled' | 'expired' | 'trial';
   subscriptionExpiry?: string;
@@ -40,6 +41,9 @@ interface AuthState {
   refreshToken: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
   
+  // Admin helpers
+  isAdmin: () => boolean;
+  
   // Subscription helpers
   canCreateCustomer: () => boolean;
   canCreateQuote: () => boolean;
@@ -49,6 +53,12 @@ interface AuthState {
   getJobLimit: () => number;
   isFeatureAvailable: (feature: string) => boolean;
 }
+
+// Admin credentials
+const ADMIN_CREDENTIALS = {
+  email: 'admin@simplepro.com',
+  password: 'Admin007!',
+};
 
 // Subscription limits by tier
 const SUBSCRIPTION_LIMITS = {
@@ -78,6 +88,35 @@ const SUBSCRIPTION_LIMITS = {
   }
 };
 
+// Password validation function
+const validatePassword = (password: string, isAdmin: boolean = false): string | null => {
+  if (!password) {
+    return 'Password is required';
+  }
+  
+  if (password.length < 6) {
+    return 'Password must be at least 6 characters';
+  }
+  
+  // For admin, enforce stronger password requirements
+  if (isAdmin) {
+    if (!/(?=.*[a-z])/.test(password)) {
+      return 'Admin password must contain at least one lowercase letter';
+    }
+    if (!/(?=.*[A-Z])/.test(password)) {
+      return 'Admin password must contain at least one uppercase letter';
+    }
+    if (!/(?=.*\d)/.test(password)) {
+      return 'Admin password must contain at least one number';
+    }
+    if (!/(?=.*[!@#$%^&*])/.test(password)) {
+      return 'Admin password must contain at least one special character (!@#$%^&*)';
+    }
+  }
+  
+  return null;
+};
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -90,18 +129,69 @@ export const useAuthStore = create<AuthState>()(
       login: async (email, password) => {
         set({ isLoading: true, error: null });
         try {
-          // In a real app, this would be an API call
-          // For demo purposes, we'll simulate a successful login
+          const trimmedEmail = email.toLowerCase().trim();
+          
+          // Check if this is admin login
+          if (trimmedEmail === ADMIN_CREDENTIALS.email) {
+            if (password !== ADMIN_CREDENTIALS.password) {
+              throw new Error('Invalid admin credentials');
+            }
+            
+            // Validate admin password format
+            const passwordError = validatePassword(password, true);
+            if (passwordError) {
+              throw new Error(passwordError);
+            }
+            
+            // Create admin user
+            const adminUser: User = {
+              id: 'admin_user',
+              email: ADMIN_CREDENTIALS.email,
+              emailVerified: true,
+              userType: 'admin',
+              subscriptionTier: 'enterprise', // Admin gets all features
+              subscriptionStatus: 'active',
+              businessProfile: {
+                companyName: 'SimplePro Admin',
+                ownerName: 'System Administrator',
+                email: ADMIN_CREDENTIALS.email,
+              },
+              createdAt: new Date().toISOString(),
+              lastLogin: new Date().toISOString(),
+              onboardingCompleted: true,
+            };
+            
+            const adminToken = 'admin_jwt_token_' + Date.now();
+            
+            set({
+              user: adminUser,
+              token: adminToken,
+              isAuthenticated: true,
+              isLoading: false,
+            });
+            
+            console.log('Admin login successful');
+            return;
+          }
+          
+          // Regular user login validation
+          const passwordError = validatePassword(password, false);
+          if (passwordError) {
+            throw new Error(passwordError);
+          }
+          
+          // Regular user login (mock implementation)
           const mockUser: User = {
             id: 'user_' + Date.now(),
-            email,
+            email: trimmedEmail,
             emailVerified: true,
+            userType: 'user',
             subscriptionTier: 'free',
             subscriptionStatus: 'active',
             businessProfile: {
               companyName: 'My Company',
               ownerName: 'John Doe',
-              email: email,
+              email: trimmedEmail,
             },
             createdAt: new Date().toISOString(),
             lastLogin: new Date().toISOString(),
@@ -116,6 +206,8 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             isLoading: false,
           });
+          
+          console.log('User login successful');
         } catch (error) {
           set({ error: (error as Error).message, isLoading: false });
           throw error;
@@ -125,16 +217,38 @@ export const useAuthStore = create<AuthState>()(
       register: async (email, password, companyName) => {
         set({ isLoading: true, error: null });
         try {
-          // In a real app, this would be an API call
+          const trimmedEmail = email.toLowerCase().trim();
+          
+          // Prevent registration with admin email
+          if (trimmedEmail === ADMIN_CREDENTIALS.email) {
+            throw new Error('Cannot register with admin email address');
+          }
+          
+          // Validate password (minimum 6 characters for regular users)
+          const passwordError = validatePassword(password, false);
+          if (passwordError) {
+            throw new Error(passwordError);
+          }
+          
+          // Additional validation for user registration
+          if (password.length < 8) {
+            throw new Error('Password must be at least 8 characters for new accounts');
+          }
+          
+          if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
+            throw new Error('Password must contain uppercase, lowercase, and number');
+          }
+          
           const mockUser: User = {
             id: 'user_' + Date.now(),
-            email,
+            email: trimmedEmail,
             emailVerified: false, // Requires email verification
+            userType: 'user',
             subscriptionTier: 'free',
             subscriptionStatus: 'active',
             businessProfile: {
               companyName,
-              email: email,
+              email: trimmedEmail,
             },
             createdAt: new Date().toISOString(),
             onboardingCompleted: false,
@@ -161,6 +275,7 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: false,
             isLoading: false,
           });
+          console.log('Logout successful');
         } catch (error) {
           set({ error: (error as Error).message, isLoading: false });
         }
@@ -195,6 +310,13 @@ export const useAuthStore = create<AuthState>()(
       resetPassword: async (email) => {
         set({ isLoading: true, error: null });
         try {
+          const trimmedEmail = email.toLowerCase().trim();
+          
+          // Prevent password reset for admin email
+          if (trimmedEmail === ADMIN_CREDENTIALS.email) {
+            throw new Error('Admin password cannot be reset through this method. Contact system administrator.');
+          }
+          
           // In a real app, this would send a password reset email
           // For demo, we'll just simulate success
           set({ isLoading: false });
@@ -233,7 +355,7 @@ export const useAuthStore = create<AuthState>()(
         const token = get().token;
         if (token) {
           // Simulate token refresh
-          const newToken = 'jwt_token_' + Date.now();
+          const newToken = token.includes('admin') ? 'admin_jwt_token_' + Date.now() : 'jwt_token_' + Date.now();
           set({ token: newToken });
         }
       },
@@ -250,10 +372,19 @@ export const useAuthStore = create<AuthState>()(
         }
       },
       
+      // Admin helpers
+      isAdmin: () => {
+        const user = get().user;
+        return user?.userType === 'admin' || false;
+      },
+      
       // Subscription helpers
       canCreateCustomer: () => {
         const user = get().user;
         if (!user) return false;
+        
+        // Admin can create unlimited
+        if (user.userType === 'admin') return true;
         
         const limits = SUBSCRIPTION_LIMITS[user.subscriptionTier];
         // In a real app, you'd check the actual count from the customer store
@@ -264,6 +395,9 @@ export const useAuthStore = create<AuthState>()(
         const user = get().user;
         if (!user) return false;
         
+        // Admin can create unlimited
+        if (user.userType === 'admin') return true;
+        
         const limits = SUBSCRIPTION_LIMITS[user.subscriptionTier];
         return limits.quotes === Infinity || true; // Simplified for demo
       },
@@ -272,6 +406,9 @@ export const useAuthStore = create<AuthState>()(
         const user = get().user;
         if (!user) return false;
         
+        // Admin can create unlimited
+        if (user.userType === 'admin') return true;
+        
         const limits = SUBSCRIPTION_LIMITS[user.subscriptionTier];
         return limits.jobs === Infinity || true; // Simplified for demo
       },
@@ -279,24 +416,39 @@ export const useAuthStore = create<AuthState>()(
       getCustomerLimit: () => {
         const user = get().user;
         if (!user) return 0;
+        
+        // Admin has unlimited
+        if (user.userType === 'admin') return Infinity;
+        
         return SUBSCRIPTION_LIMITS[user.subscriptionTier].customers;
       },
       
       getQuoteLimit: () => {
         const user = get().user;
         if (!user) return 0;
+        
+        // Admin has unlimited
+        if (user.userType === 'admin') return Infinity;
+        
         return SUBSCRIPTION_LIMITS[user.subscriptionTier].quotes;
       },
       
       getJobLimit: () => {
         const user = get().user;
         if (!user) return 0;
+        
+        // Admin has unlimited
+        if (user.userType === 'admin') return Infinity;
+        
         return SUBSCRIPTION_LIMITS[user.subscriptionTier].jobs;
       },
       
       isFeatureAvailable: (feature) => {
         const user = get().user;
         if (!user) return false;
+        
+        // Admin has access to all features
+        if (user.userType === 'admin') return true;
         
         const features = SUBSCRIPTION_LIMITS[user.subscriptionTier].features;
         return features.includes('all_features') || features.includes(feature);
@@ -308,3 +460,12 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+
+// Export admin credentials for testing purposes
+export const ADMIN_TEST_CREDENTIALS = {
+  email: ADMIN_CREDENTIALS.email,
+  password: ADMIN_CREDENTIALS.password,
+};
+
+// Export password validation function for use in components
+export { validatePassword };

@@ -1,13 +1,17 @@
 import { createTRPCRouter } from "./create-context";
 import { hiProcedure } from "./routes/example/hi/route";
-import { quoteWorkflowRouter } from "./routes/quotes/workflow";
+import { workflowRouter } from "./routes/quotes/workflow";
+import { adminRouter } from "./routes/auth/admin";
 
 export const appRouter = createTRPCRouter({
   example: createTRPCRouter({
     hi: hiProcedure,
   }),
   quotes: createTRPCRouter({
-    workflow: quoteWorkflowRouter,
+    workflow: workflowRouter,
+  }),
+  auth: createTRPCRouter({
+    admin: adminRouter,
   }),
 });
 

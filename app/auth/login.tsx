@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Eye, EyeOff } from 'lucide-react-native';
+import { Eye, EyeOff, Shield } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { theme } from '@/constants/theme';
 import Button from '@/components/Button';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore, validatePassword, ADMIN_TEST_CREDENTIALS } from '@/store/authStore';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -16,6 +16,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [showAdminHint, setShowAdminHint] = useState(false);
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string } = {};
@@ -26,10 +27,11 @@ export default function LoginScreen() {
       newErrors.email = 'Please enter a valid email';
     }
     
-    if (!password) {
-      newErrors.password = 'Password is required';
-    } else if (password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+    // Use the centralized password validation
+    const isAdminEmail = email.toLowerCase().trim() === ADMIN_TEST_CREDENTIALS.email;
+    const passwordError = validatePassword(password, isAdminEmail);
+    if (passwordError) {
+      newErrors.password = passwordError;
     }
     
     setErrors(newErrors);
@@ -43,7 +45,7 @@ export default function LoginScreen() {
       await login(email.toLowerCase().trim(), password);
       router.replace('/(tabs)');
     } catch (error) {
-      Alert.alert('Login Failed', 'Invalid email or password. Please try again.');
+      Alert.alert('Login Failed', (error as Error).message || 'Invalid email or password. Please try again.');
     }
   };
 
@@ -54,6 +56,18 @@ export default function LoginScreen() {
   const handleSignUp = () => {
     router.push('/auth/register');
   };
+
+  const handleAdminLogin = () => {
+    setEmail(ADMIN_TEST_CREDENTIALS.email);
+    setPassword(ADMIN_TEST_CREDENTIALS.password);
+    setErrors({});
+  };
+
+  const toggleAdminHint = () => {
+    setShowAdminHint(!showAdminHint);
+  };
+
+  const isAdminEmail = email.toLowerCase().trim() === ADMIN_TEST_CREDENTIALS.email;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -71,7 +85,11 @@ export default function LoginScreen() {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Email</Text>
               <TextInput
-                style={[styles.input, errors.email && styles.inputError]}
+                style={[
+                  styles.input, 
+                  errors.email && styles.inputError,
+                  isAdminEmail && styles.adminInput
+                ]}
                 placeholder="Enter your email"
                 placeholderTextColor={colors.gray[400]}
                 value={email}
@@ -85,6 +103,12 @@ export default function LoginScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
               />
+              {isAdminEmail && (
+                <View style={styles.adminIndicator}>
+                  <Shield size={16} color={colors.primary} />
+                  <Text style={styles.adminText}>Admin Account</Text>
+                </View>
+              )}
               {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
             </View>
 
@@ -92,7 +116,11 @@ export default function LoginScreen() {
               <Text style={styles.label}>Password</Text>
               <View style={styles.passwordContainer}>
                 <TextInput
-                  style={[styles.passwordInput, errors.password && styles.inputError]}
+                  style={[
+                    styles.passwordInput, 
+                    errors.password && styles.inputError,
+                    isAdminEmail && styles.adminInput
+                  ]}
                   placeholder="Enter your password"
                   placeholderTextColor={colors.gray[400]}
                   value={password}
@@ -117,6 +145,11 @@ export default function LoginScreen() {
                   )}
                 </TouchableOpacity>
               </View>
+              {isAdminEmail && (
+                <Text style={styles.adminPasswordHint}>
+                  Admin password requires: uppercase, lowercase, number, and special character
+                </Text>
+              )}
               {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
             </View>
 
@@ -132,6 +165,25 @@ export default function LoginScreen() {
               loading={isLoading}
               style={styles.loginButton}
             />
+
+            {/* Admin Login Helper */}
+            <View style={styles.adminSection}>
+              <TouchableOpacity onPress={toggleAdminHint} style={styles.adminHintButton}>
+                <Shield size={16} color={colors.gray[500]} />
+                <Text style={styles.adminHintText}>Admin Access</Text>
+              </TouchableOpacity>
+              
+              {showAdminHint && (
+                <View style={styles.adminHintContainer}>
+                  <Text style={styles.adminHintTitle}>Admin Test Credentials:</Text>
+                  <Text style={styles.adminCredentials}>Email: {ADMIN_TEST_CREDENTIALS.email}</Text>
+                  <Text style={styles.adminCredentials}>Password: {ADMIN_TEST_CREDENTIALS.password}</Text>
+                  <TouchableOpacity onPress={handleAdminLogin} style={styles.useAdminButton}>
+                    <Text style={styles.useAdminButtonText}>Use Admin Credentials</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
           </View>
 
           <View style={styles.footer}>
@@ -195,6 +247,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: colors.white,
   },
+  adminInput: {
+    borderColor: colors.primary,
+    borderWidth: 2,
+  },
   inputError: {
     borderColor: colors.error,
   },
@@ -216,6 +272,23 @@ const styles = StyleSheet.create({
     right: theme.spacing.md,
     top: 15,
   },
+  adminIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: theme.spacing.xs,
+  },
+  adminText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '500',
+    marginLeft: theme.spacing.xs,
+  },
+  adminPasswordHint: {
+    fontSize: 12,
+    color: colors.gray[500],
+    marginTop: theme.spacing.xs,
+    fontStyle: 'italic',
+  },
   errorText: {
     fontSize: 14,
     color: colors.error,
@@ -232,6 +305,54 @@ const styles = StyleSheet.create({
   },
   loginButton: {
     marginTop: theme.spacing.md,
+  },
+  adminSection: {
+    marginTop: theme.spacing.lg,
+    paddingTop: theme.spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray[200],
+  },
+  adminHintButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.sm,
+  },
+  adminHintText: {
+    fontSize: 14,
+    color: colors.gray[500],
+    marginLeft: theme.spacing.xs,
+  },
+  adminHintContainer: {
+    backgroundColor: colors.gray[50],
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    marginTop: theme.spacing.sm,
+  },
+  adminHintTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.gray[700],
+    marginBottom: theme.spacing.xs,
+  },
+  adminCredentials: {
+    fontSize: 12,
+    color: colors.gray[600],
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    marginBottom: theme.spacing.xs,
+  },
+  useAdminButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.sm,
+    marginTop: theme.spacing.sm,
+    alignItems: 'center',
+  },
+  useAdminButtonText: {
+    fontSize: 12,
+    color: colors.white,
+    fontWeight: '500',
   },
   footer: {
     flexDirection: 'row',
