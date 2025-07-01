@@ -120,7 +120,7 @@ export default function DashboardScreen() {
                   onPress={() => router.push('/customers/new')}
                   variant="primary"
                   size="sm"
-                  icon={Users}
+                  icon={<Users size={16} color={colors.white} />}
                   style={styles.emptyStateButton}
                 />
                 <Button
@@ -128,7 +128,7 @@ export default function DashboardScreen() {
                   onPress={() => router.push('/quotes/new')}
                   variant="outline"
                   size="sm"
-                  icon={FileText}
+                  icon={<FileText size={16} color={colors.primary} />}
                   style={styles.emptyStateButton}
                 />
               </View>
@@ -141,7 +141,7 @@ export default function DashboardScreen() {
               <StatCard
                 title="Customers"
                 value={totalCustomers.toString()}
-                icon={Users}
+                icon={<Users size={20} color={colors.white} />}
                 color={colors.primary}
                 onPress={() => router.push('/(tabs)/customers')}
               />
@@ -149,7 +149,7 @@ export default function DashboardScreen() {
                 title="Quotes"
                 value={totalQuotes.toString()}
                 subtitle={`${pendingQuotes} pending`}
-                icon={FileText}
+                icon={<FileText size={20} color={colors.white} />}
                 color={colors.secondary}
                 onPress={() => router.push('/(tabs)/quotes')}
               />
@@ -157,7 +157,7 @@ export default function DashboardScreen() {
                 title="Jobs"
                 value={totalJobs.toString()}
                 subtitle={`${scheduledJobs} scheduled`}
-                icon={Briefcase}
+                icon={<Briefcase size={20} color={colors.white} />}
                 color={colors.success}
                 onPress={() => router.push('/(tabs)/jobs')}
               />
@@ -165,7 +165,7 @@ export default function DashboardScreen() {
                 title="Revenue"
                 value={`$${approvedQuoteValue.toLocaleString()}`}
                 subtitle="Approved quotes"
-                icon={DollarSign}
+                icon={<DollarSign size={20} color={colors.white} />}
                 color={colors.warning}
                 onPress={() => router.push('/(tabs)/pipeline')}
               />
