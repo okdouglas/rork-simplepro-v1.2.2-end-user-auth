@@ -136,7 +136,7 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({
     }
   };
   
-  const getStatusIcon = () => {
+  const renderStatusIcon = () => {
     if (!showIcon) return null;
     
     const sizeStyles = getSizeStyles();
@@ -165,7 +165,7 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({
   
   const sizeStyles = getSizeStyles();
   const statusColor = getStatusColor();
-  const statusIcon = getStatusIcon();
+  const statusIcon = renderStatusIcon();
   
   return (
     <View style={[

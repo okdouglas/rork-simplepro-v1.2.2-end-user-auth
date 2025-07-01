@@ -3,13 +3,10 @@ import { Tabs } from 'expo-router';
 import { Home, FileText, Briefcase, Users, BarChart3, User } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { theme } from '@/constants/theme';
-import { TouchableOpacity, StyleSheet, View, Text } from 'react-native';
-import { useRouter } from 'expo-router';
-import { LOGO_URL } from '@/constants/logo';
-import { Image } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 // Custom tab bar icon component for the Quotes tab with green bubble
-const TabBarIcon = ({ name, color, size }) => {
+const TabBarIcon = ({ name, color, size }: { name: string; color: string; size: number }) => {
   const isQuotes = name === 'quotes';
   
   if (isQuotes) {
@@ -33,13 +30,11 @@ const TabBarIcon = ({ name, color, size }) => {
     case 'profile':
       return <User size={size} color={color} />;
     default:
-      return null;
+      return <Home size={size} color={color} />;
   }
 };
 
 export default function TabLayout() {
-  const router = useRouter();
-
   return (
     <Tabs
       screenOptions={({ route }) => ({
@@ -59,8 +54,7 @@ export default function TabLayout() {
         tabBarShowLabel: false, // Explicitly hide labels
         headerShown: false, // Remove the global header
         tabBarIcon: ({ color, size }) => {
-          const name = route.name;
-          return <TabBarIcon name={name} color={color} size={size} />;
+          return <TabBarIcon name={route.name} color={color} size={size} />;
         },
       })}
     >

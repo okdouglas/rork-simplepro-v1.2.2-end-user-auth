@@ -51,7 +51,7 @@ const Header: React.FC<HeaderProps> = ({
           <View style={styles.notificationBadge} />
         </TouchableOpacity>
 
-        {showExport && (
+        {showExport && onExportPress && (
           <TouchableOpacity
             style={[styles.actionButton, styles.exportButton]}
             onPress={onExportPress}
@@ -60,7 +60,7 @@ const Header: React.FC<HeaderProps> = ({
           </TouchableOpacity>
         )}
 
-        {showAdd && (
+        {showAdd && onAddPress && (
           <TouchableOpacity
             style={styles.actionButton}
             onPress={onAddPress}
@@ -69,7 +69,11 @@ const Header: React.FC<HeaderProps> = ({
           </TouchableOpacity>
         )}
 
-        {rightComponent}
+        {rightComponent && (
+          <View style={styles.rightComponentContainer}>
+            {rightComponent}
+          </View>
+        )}
       </View>
     </View>
   );
@@ -133,6 +137,10 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.primary,
+  },
+  rightComponentContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 
