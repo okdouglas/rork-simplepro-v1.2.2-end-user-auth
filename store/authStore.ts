@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ADMIN_CONFIG, validateAdminCredentials, isAdminEmail } from '@/constants/admin';
 
 export interface User {
   id: string;
@@ -22,6 +23,9 @@ export interface User {
   createdAt: string;
   lastLogin?: string;
   onboardingCompleted: boolean;
+  permissions?: Record<string, boolean>;
+  features?: Record<string, boolean>;
+  sessionExpiry?: string;
 }
 
 interface AuthState {
@@ -43,6 +47,7 @@ interface AuthState {
   
   // Admin helpers
   isAdmin: () => boolean;
+  hasAdminPermission: (permission: string) => boolean;
   
   // Subscription helpers
   canCreateCustomer: () => boolean;
@@ -52,13 +57,11 @@ interface AuthState {
   getQuoteLimit: () => number;
   getJobLimit: () => number;
   isFeatureAvailable: (feature: string) => boolean;
+  
+  // Session management
+  isSessionValid: () => boolean;
+  getSessionTimeRemaining: () => number;
 }
-
-// Admin credentials
-const ADMIN_CREDENTIALS = {
-  email: 'admin@simplepro.com',
-  password: 'Admin007!',
-};
 
 // Subscription limits by tier
 const SUBSCRIPTION_LIMITS = {
@@ -132,21 +135,17 @@ export const useAuthStore = create<AuthState>()(
           const trimmedEmail = email.toLowerCase().trim();
           
           // Check if this is admin login
-          if (trimmedEmail === ADMIN_CREDENTIALS.email) {
-            if (password !== ADMIN_CREDENTIALS.password) {
-              throw new Error('Invalid admin credentials');
-            }
-            
-            // Validate admin password format
-            const passwordError = validatePassword(password, true);
-            if (passwordError) {
-              throw new Error(passwordError);
+          if (isAdminEmail(trimmedEmail)) {
+            // Validate admin credentials
+            const credentialValidation = validateAdminCredentials(trimmedEmail, password);
+            if (!credentialValidation.isValid) {
+              throw new Error(`Admin login failed: ${credentialValidation.errors.join(', ')}`);
             }
             
             // Create admin user
             const adminUser: User = {
               id: 'admin_user',
-              email: ADMIN_CREDENTIALS.email,
+              email: ADMIN_CONFIG.DEFAULT_EMAIL,
               emailVerified: true,
               userType: 'admin',
               subscriptionTier: 'enterprise', // Admin gets all features
@@ -154,14 +153,19 @@ export const useAuthStore = create<AuthState>()(
               businessProfile: {
                 companyName: 'SimplePro Admin',
                 ownerName: 'System Administrator',
-                email: ADMIN_CREDENTIALS.email,
+                email: ADMIN_CONFIG.DEFAULT_EMAIL,
+                phone: '+1 (555) 123-4567',
+                address: 'System Administration',
               },
               createdAt: new Date().toISOString(),
               lastLogin: new Date().toISOString(),
               onboardingCompleted: true,
+              permissions: ADMIN_CONFIG.PERMISSIONS,
+              features: ADMIN_CONFIG.FEATURES,
+              sessionExpiry: new Date(Date.now() + ADMIN_CONFIG.SESSION_TIMEOUT).toISOString(),
             };
             
-            const adminToken = 'admin_jwt_token_' + Date.now();
+            const adminToken = `admin_jwt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             
             set({
               user: adminUser,
@@ -170,7 +174,11 @@ export const useAuthStore = create<AuthState>()(
               isLoading: false,
             });
             
-            console.log('Admin login successful');
+            console.log('Admin login successful:', {
+              email: trimmedEmail,
+              timestamp: new Date().toISOString(),
+              sessionExpiry: adminUser.sessionExpiry,
+            });
             return;
           }
           
@@ -209,6 +217,7 @@ export const useAuthStore = create<AuthState>()(
           
           console.log('User login successful');
         } catch (error) {
+          console.error('Login error:', error);
           set({ error: (error as Error).message, isLoading: false });
           throw error;
         }
@@ -220,7 +229,7 @@ export const useAuthStore = create<AuthState>()(
           const trimmedEmail = email.toLowerCase().trim();
           
           // Prevent registration with admin email
-          if (trimmedEmail === ADMIN_CREDENTIALS.email) {
+          if (isAdminEmail(trimmedEmail)) {
             throw new Error('Cannot register with admin email address');
           }
           
@@ -313,7 +322,7 @@ export const useAuthStore = create<AuthState>()(
           const trimmedEmail = email.toLowerCase().trim();
           
           // Prevent password reset for admin email
-          if (trimmedEmail === ADMIN_CREDENTIALS.email) {
+          if (isAdminEmail(trimmedEmail)) {
             throw new Error('Admin password cannot be reset through this method. Contact system administrator.');
           }
           
@@ -355,7 +364,9 @@ export const useAuthStore = create<AuthState>()(
         const token = get().token;
         if (token) {
           // Simulate token refresh
-          const newToken = token.includes('admin') ? 'admin_jwt_token_' + Date.now() : 'jwt_token_' + Date.now();
+          const newToken = token.includes('admin') ? 
+            `admin_jwt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` : 
+            'jwt_token_' + Date.now();
           set({ token: newToken });
         }
       },
@@ -376,6 +387,13 @@ export const useAuthStore = create<AuthState>()(
       isAdmin: () => {
         const user = get().user;
         return user?.userType === 'admin' || false;
+      },
+      
+      hasAdminPermission: (permission: string) => {
+        const user = get().user;
+        if (!user || user.userType !== 'admin') return false;
+        
+        return user.permissions?.[permission] === true || false;
       },
       
       // Subscription helpers
@@ -453,6 +471,22 @@ export const useAuthStore = create<AuthState>()(
         const features = SUBSCRIPTION_LIMITS[user.subscriptionTier].features;
         return features.includes('all_features') || features.includes(feature);
       },
+      
+      // Session management
+      isSessionValid: () => {
+        const user = get().user;
+        if (!user || !user.sessionExpiry) return true; // Regular users don't have session expiry
+        
+        return new Date() < new Date(user.sessionExpiry);
+      },
+      
+      getSessionTimeRemaining: () => {
+        const user = get().user;
+        if (!user || !user.sessionExpiry) return Infinity;
+        
+        const remaining = new Date(user.sessionExpiry).getTime() - Date.now();
+        return Math.max(0, remaining);
+      },
     }),
     {
       name: 'auth-storage',
@@ -463,8 +497,8 @@ export const useAuthStore = create<AuthState>()(
 
 // Export admin credentials for testing purposes
 export const ADMIN_TEST_CREDENTIALS = {
-  email: ADMIN_CREDENTIALS.email,
-  password: ADMIN_CREDENTIALS.password,
+  email: ADMIN_CONFIG.DEFAULT_EMAIL,
+  password: ADMIN_CONFIG.DEFAULT_PASSWORD,
 };
 
 // Export password validation function for use in components
