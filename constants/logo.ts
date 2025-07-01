@@ -1,0 +1,1 @@
+export const LOGO_URL = "https://i.imgur.com/JGUmZ5F.png";
