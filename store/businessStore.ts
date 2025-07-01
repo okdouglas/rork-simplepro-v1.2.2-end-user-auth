@@ -21,6 +21,7 @@ interface BusinessState {
   updateProfile: (updates: Partial<BusinessProfile>) => void;
   resetProfile: () => void;
   initializeForUser: (userId: string) => void;
+  loadSampleDataForTestUser: () => void;
 }
 
 const DEFAULT_PROFILE: BusinessProfile = {
@@ -29,6 +30,14 @@ const DEFAULT_PROFILE: BusinessProfile = {
   email: '',
   phone: '',
   address: '',
+};
+
+const TEST_USER_PROFILE: BusinessProfile = {
+  name: 'Demo Construction Co.',
+  owner: 'John Demo',
+  email: 'testuser@simplepro.com',
+  phone: '+1 (555) 123-4567',
+  address: '123 Demo Street, Demo City, DC 12345',
 };
 
 export const useBusinessStore = create<BusinessState>()(
@@ -58,21 +67,30 @@ export const useBusinessStore = create<BusinessState>()(
       },
       
       initializeForUser: (userId) => {
-        const { user } = useAuthStore.getState();
-        if (user?.businessProfile) {
-          set({
-            profile: {
-              name: user.businessProfile.companyName || '',
-              owner: user.businessProfile.ownerName || '',
-              email: user.businessProfile.email || '',
-              phone: user.businessProfile.phone || '',
-              address: user.businessProfile.address || '',
-              logo: user.businessProfile.logo || '',
-            }
-          });
+        // Check if this is the test user
+        if (userId === 'test_user_001') {
+          get().loadSampleDataForTestUser();
         } else {
-          set({ profile: DEFAULT_PROFILE });
+          const { user } = useAuthStore.getState();
+          if (user?.businessProfile) {
+            set({
+              profile: {
+                name: user.businessProfile.companyName || '',
+                owner: user.businessProfile.ownerName || '',
+                email: user.businessProfile.email || '',
+                phone: user.businessProfile.phone || '',
+                address: user.businessProfile.address || '',
+                logo: user.businessProfile.logo || '',
+              }
+            });
+          } else {
+            set({ profile: DEFAULT_PROFILE });
+          }
         }
+      },
+      
+      loadSampleDataForTestUser: () => {
+        set({ profile: TEST_USER_PROFILE });
       },
     }),
     {

@@ -2,8 +2,9 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Job, JobStatus, JobPriority } from '@/types';
-import { jobs as initialJobs } from '@/mocks/jobs';
+import { jobs as sampleJobs } from '@/mocks/jobs';
 import { useQuoteStore } from './quoteStore';
+import { useAuthStore } from './authStore';
 
 interface JobState {
   jobs: Job[];
@@ -22,6 +23,10 @@ interface JobState {
   deleteJob: (id: string) => Promise<void>;
   updateJobStatus: (id: string, status: JobStatus) => Promise<Job>;
   
+  // User-specific actions
+  initializeForUser: (userId: string) => void;
+  loadSampleDataForTestUser: () => void;
+  
   // Quote-to-Job Conversion
   createJobFromQuote: (quoteId: string) => Promise<Job>;
 }
@@ -29,7 +34,7 @@ interface JobState {
 export const useJobStore = create<JobState>()(
   persist(
     (set, get) => ({
-      jobs: initialJobs,
+      jobs: [],
       isLoading: false,
       error: null,
       
@@ -38,7 +43,7 @@ export const useJobStore = create<JobState>()(
         try {
           // In a real app, this would be an API call
           // For now, we're just using the mock data
-          set({ jobs: initialJobs, isLoading: false });
+          set({ isLoading: false });
         } catch (error) {
           set({ error: (error as Error).message, isLoading: false });
         }
@@ -133,6 +138,32 @@ export const useJobStore = create<JobState>()(
         });
       },
       
+      // User-specific actions
+      initializeForUser: (userId) => {
+        // Check if this is the test user
+        if (userId === 'test_user_001') {
+          get().loadSampleDataForTestUser();
+        } else {
+          // Reset to empty state for new user
+          set({
+            jobs: [],
+          });
+        }
+      },
+      
+      loadSampleDataForTestUser: () => {
+        // Load sample jobs for test user, updating customer IDs to match test user customers
+        const testUserJobs = sampleJobs.map(job => ({
+          ...job,
+          id: `test_${job.id}`, // Prefix with test to avoid conflicts
+          customerId: `test_${job.customerId}`, // Match test customer IDs
+        }));
+        
+        set({
+          jobs: testUserJobs,
+        });
+      },
+      
       createJobFromQuote: async (quoteId) => {
         set({ isLoading: true, error: null });
         try {
@@ -188,6 +219,13 @@ export const useJobStore = create<JobState>()(
     {
       name: 'job-storage',
       storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => {
+        // Only persist if user is authenticated
+        const { user } = useAuthStore.getState();
+        return user ? {
+          jobs: state.jobs,
+        } : {};
+      },
     }
   )
 );

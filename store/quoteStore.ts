@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Quote, QuoteStatus, QuoteCommunication } from '@/types';
-import { quotes as initialQuotes } from '@/mocks/quotes';
+import { quotes as sampleQuotes } from '@/mocks/quotes';
 import { 
   sendSMS, 
   sendEmail, 
@@ -17,6 +17,7 @@ import {
   exportQuotesToExcel
 } from '@/services/twilio';
 import { useCustomerStore } from './customerStore';
+import { useAuthStore } from './authStore';
 
 interface QuoteState {
   quotes: Quote[];
@@ -31,6 +32,10 @@ interface QuoteState {
   addQuote: (quote: Omit<Quote, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Quote>;
   updateQuote: (id: string, updates: Partial<Quote>) => Promise<Quote>;
   deleteQuote: (id: string) => Promise<void>;
+  
+  // User-specific actions
+  initializeForUser: (userId: string) => void;
+  loadSampleDataForTestUser: () => void;
   
   // Bulk operations
   bulkUpdateQuotes: (ids: string[], updates: Partial<Quote>) => Promise<Quote[]>;
@@ -84,7 +89,7 @@ interface QuoteState {
 export const useQuoteStore = create<QuoteState>()(
   persist(
     (set, get) => ({
-      quotes: initialQuotes,
+      quotes: [],
       isLoading: false,
       error: null,
       
@@ -93,7 +98,7 @@ export const useQuoteStore = create<QuoteState>()(
         try {
           // In a real app, this would be an API call
           // For now, we're just using the mock data
-          set({ quotes: initialQuotes, isLoading: false });
+          set({ isLoading: false });
         } catch (error) {
           set({ error: (error as Error).message, isLoading: false });
         }
@@ -171,6 +176,32 @@ export const useQuoteStore = create<QuoteState>()(
           set({ error: (error as Error).message, isLoading: false });
           throw error;
         }
+      },
+      
+      // User-specific actions
+      initializeForUser: (userId) => {
+        // Check if this is the test user
+        if (userId === 'test_user_001') {
+          get().loadSampleDataForTestUser();
+        } else {
+          // Reset to empty state for new user
+          set({
+            quotes: [],
+          });
+        }
+      },
+      
+      loadSampleDataForTestUser: () => {
+        // Load sample quotes for test user, updating customer IDs to match test user customers
+        const testUserQuotes = sampleQuotes.map(quote => ({
+          ...quote,
+          id: `test_${quote.id}`, // Prefix with test to avoid conflicts
+          customerId: `test_${quote.customerId}`, // Match test customer IDs
+        }));
+        
+        set({
+          quotes: testUserQuotes,
+        });
       },
       
       // Bulk operations
@@ -900,6 +931,13 @@ export const useQuoteStore = create<QuoteState>()(
     {
       name: 'quote-storage',
       storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => {
+        // Only persist if user is authenticated
+        const { user } = useAuthStore.getState();
+        return user ? {
+          quotes: state.quotes,
+        } : {};
+      },
     }
   )
 );

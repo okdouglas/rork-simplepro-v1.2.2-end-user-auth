@@ -3,6 +3,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Customer, CustomerSegment, CustomerMetrics, CustomerCampaign, ServiceArea, ClientLocation, JobLocation } from '@/types';
 import { useAuthStore } from './authStore';
+import { customers as sampleCustomers } from '@/mocks/customers';
 
 interface CustomerState {
   customers: Customer[];
@@ -29,6 +30,7 @@ interface CustomerState {
   
   // User-specific actions
   initializeForUser: (userId: string) => void;
+  loadSampleDataForTestUser: () => void;
   canAddCustomer: () => boolean;
   getCustomerCount: () => number;
   
@@ -319,15 +321,35 @@ export const useCustomerStore = create<CustomerState>()(
       
       // User-specific actions
       initializeForUser: (userId) => {
-        // Reset to empty state for new user
+        // Check if this is the test user
+        if (userId === 'test_user_001') {
+          get().loadSampleDataForTestUser();
+        } else {
+          // Reset to empty state for new user
+          set({
+            customers: [],
+            metrics: EMPTY_METRICS,
+            selectedSegment: 'all',
+            serviceAreas: [],
+            clientLocations: [],
+            jobLocations: [],
+          });
+        }
+      },
+      
+      loadSampleDataForTestUser: () => {
+        // Load sample customers for test user
+        const testUserCustomers = sampleCustomers.map(customer => ({
+          ...customer,
+          id: `test_${customer.id}`, // Prefix with test to avoid conflicts
+        }));
+        
         set({
-          customers: [],
-          metrics: EMPTY_METRICS,
-          selectedSegment: 'all',
-          serviceAreas: [],
-          clientLocations: [],
-          jobLocations: [],
+          customers: testUserCustomers,
         });
+        
+        // Refresh metrics after loading sample data
+        get().fetchCustomerMetrics();
       },
       
       canAddCustomer: () => {

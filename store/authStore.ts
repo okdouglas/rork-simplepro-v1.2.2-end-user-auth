@@ -35,6 +35,9 @@ interface AuthState {
   error: string | null;
   isAuthenticated: boolean;
   
+  // Test user management
+  testUsers: User[];
+  
   // Actions
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, companyName: string) => Promise<void>;
@@ -48,6 +51,11 @@ interface AuthState {
   // Admin helpers
   isAdmin: () => boolean;
   hasAdminPermission: (permission: string) => boolean;
+  
+  // Test user management
+  createTestUser: () => Promise<User>;
+  getTestUsers: () => User[];
+  deleteTestUser: (userId: string) => Promise<void>;
   
   // Subscription helpers
   canCreateCustomer: () => boolean;
@@ -91,6 +99,17 @@ const SUBSCRIPTION_LIMITS = {
   }
 };
 
+// Test user configuration
+const TEST_USER_CONFIG = {
+  email: 'testuser@simplepro.com',
+  password: 'TestUser123!',
+  companyName: 'Demo Construction Co.',
+  ownerName: 'John Demo',
+  phone: '+1 (555) 123-4567',
+  address: '123 Demo Street, Demo City, DC 12345',
+  taxId: 'TX123456789',
+};
+
 // Password validation function
 const validatePassword = (password: string, isAdmin: boolean = false): string | null => {
   if (!password) {
@@ -128,6 +147,7 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       error: null,
       isAuthenticated: false,
+      testUsers: [],
       
       login: async (email, password) => {
         set({ isLoading: true, error: null });
@@ -182,6 +202,42 @@ export const useAuthStore = create<AuthState>()(
             return;
           }
           
+          // Check if this is test user login
+          if (trimmedEmail === TEST_USER_CONFIG.email && password === TEST_USER_CONFIG.password) {
+            // Create test user
+            const testUser: User = {
+              id: 'test_user_001',
+              email: TEST_USER_CONFIG.email,
+              emailVerified: true,
+              userType: 'user',
+              subscriptionTier: 'pro', // Give test user pro features for demo
+              subscriptionStatus: 'active',
+              businessProfile: {
+                companyName: TEST_USER_CONFIG.companyName,
+                ownerName: TEST_USER_CONFIG.ownerName,
+                email: TEST_USER_CONFIG.email,
+                phone: TEST_USER_CONFIG.phone,
+                address: TEST_USER_CONFIG.address,
+                taxId: TEST_USER_CONFIG.taxId,
+              },
+              createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
+              lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+              onboardingCompleted: true,
+            };
+            
+            const testToken = `test_jwt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            
+            set({
+              user: testUser,
+              token: testToken,
+              isAuthenticated: true,
+              isLoading: false,
+            });
+            
+            console.log('Test user login successful');
+            return;
+          }
+          
           // Regular user login validation
           const passwordError = validatePassword(password, false);
           if (passwordError) {
@@ -231,6 +287,11 @@ export const useAuthStore = create<AuthState>()(
           // Prevent registration with admin email
           if (isAdminEmail(trimmedEmail)) {
             throw new Error('Cannot register with admin email address');
+          }
+          
+          // Prevent registration with test user email
+          if (trimmedEmail === TEST_USER_CONFIG.email) {
+            throw new Error('Cannot register with test user email address');
           }
           
           // Validate password (minimum 6 characters for regular users)
@@ -326,6 +387,11 @@ export const useAuthStore = create<AuthState>()(
             throw new Error('Admin password cannot be reset through this method. Contact system administrator.');
           }
           
+          // Prevent password reset for test user email
+          if (trimmedEmail === TEST_USER_CONFIG.email) {
+            throw new Error('Test user password cannot be reset. Use default credentials.');
+          }
+          
           // In a real app, this would send a password reset email
           // For demo, we'll just simulate success
           set({ isLoading: false });
@@ -366,6 +432,8 @@ export const useAuthStore = create<AuthState>()(
           // Simulate token refresh
           const newToken = token.includes('admin') ? 
             `admin_jwt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` : 
+            token.includes('test') ?
+            `test_jwt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` :
             'jwt_token_' + Date.now();
           set({ token: newToken });
         }
@@ -394,6 +462,59 @@ export const useAuthStore = create<AuthState>()(
         if (!user || user.userType !== 'admin') return false;
         
         return user.permissions?.[permission] === true || false;
+      },
+      
+      // Test user management
+      createTestUser: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const testUser: User = {
+            id: 'test_user_001',
+            email: TEST_USER_CONFIG.email,
+            emailVerified: true,
+            userType: 'user',
+            subscriptionTier: 'pro',
+            subscriptionStatus: 'active',
+            businessProfile: {
+              companyName: TEST_USER_CONFIG.companyName,
+              ownerName: TEST_USER_CONFIG.ownerName,
+              email: TEST_USER_CONFIG.email,
+              phone: TEST_USER_CONFIG.phone,
+              address: TEST_USER_CONFIG.address,
+              taxId: TEST_USER_CONFIG.taxId,
+            },
+            createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+            lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+            onboardingCompleted: true,
+          };
+          
+          set(state => ({
+            testUsers: [...state.testUsers.filter(u => u.id !== testUser.id), testUser],
+            isLoading: false,
+          }));
+          
+          return testUser;
+        } catch (error) {
+          set({ error: (error as Error).message, isLoading: false });
+          throw error;
+        }
+      },
+      
+      getTestUsers: () => {
+        return get().testUsers;
+      },
+      
+      deleteTestUser: async (userId) => {
+        set({ isLoading: true, error: null });
+        try {
+          set(state => ({
+            testUsers: state.testUsers.filter(u => u.id !== userId),
+            isLoading: false,
+          }));
+        } catch (error) {
+          set({ error: (error as Error).message, isLoading: false });
+          throw error;
+        }
       },
       
       // Subscription helpers
@@ -499,6 +620,12 @@ export const useAuthStore = create<AuthState>()(
 export const ADMIN_TEST_CREDENTIALS = {
   email: ADMIN_CONFIG.DEFAULT_EMAIL,
   password: ADMIN_CONFIG.DEFAULT_PASSWORD,
+};
+
+// Export test user credentials
+export const TEST_USER_CREDENTIALS = {
+  email: TEST_USER_CONFIG.email,
+  password: TEST_USER_CONFIG.password,
 };
 
 // Export password validation function for use in components

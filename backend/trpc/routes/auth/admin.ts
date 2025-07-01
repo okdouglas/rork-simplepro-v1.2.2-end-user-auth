@@ -8,6 +8,17 @@ import {
   getAdminSessionExpiry 
 } from '@/constants/admin';
 
+// Test user configuration
+const TEST_USER_CONFIG = {
+  email: 'testuser@simplepro.com',
+  password: 'TestUser123!',
+  companyName: 'Demo Construction Co.',
+  ownerName: 'John Demo',
+  phone: '+1 (555) 123-4567',
+  address: '123 Demo Street, Demo City, DC 12345',
+  taxId: 'TX123456789',
+};
+
 // Admin authentication router
 export const adminRouter = createTRPCRouter({
   // Admin login procedure
@@ -174,6 +185,94 @@ export const adminRouter = createTRPCRouter({
       };
     }),
   
+  // Create test user
+  createTestUser: publicProcedure
+    .mutation(async () => {
+      try {
+        const testUser = {
+          id: 'test_user_001',
+          email: TEST_USER_CONFIG.email,
+          emailVerified: true,
+          userType: 'user' as const,
+          subscriptionTier: 'pro' as const,
+          subscriptionStatus: 'active' as const,
+          businessProfile: {
+            companyName: TEST_USER_CONFIG.companyName,
+            ownerName: TEST_USER_CONFIG.ownerName,
+            email: TEST_USER_CONFIG.email,
+            phone: TEST_USER_CONFIG.phone,
+            address: TEST_USER_CONFIG.address,
+            taxId: TEST_USER_CONFIG.taxId,
+          },
+          createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
+          lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+          onboardingCompleted: true,
+        };
+        
+        return {
+          success: true,
+          user: testUser,
+          credentials: {
+            email: TEST_USER_CONFIG.email,
+            password: TEST_USER_CONFIG.password,
+          },
+          message: 'Test user created successfully with comprehensive sample data',
+        };
+      } catch (error) {
+        console.error('Test user creation error:', error);
+        throw new Error((error as Error).message || 'Failed to create test user');
+      }
+    }),
+  
+  // Get test user info
+  getTestUser: publicProcedure
+    .query(async () => {
+      return {
+        exists: true, // In a real app, check if test user exists in database
+        credentials: {
+          email: TEST_USER_CONFIG.email,
+          password: TEST_USER_CONFIG.password,
+        },
+        profile: {
+          companyName: TEST_USER_CONFIG.companyName,
+          ownerName: TEST_USER_CONFIG.ownerName,
+          phone: TEST_USER_CONFIG.phone,
+          address: TEST_USER_CONFIG.address,
+          taxId: TEST_USER_CONFIG.taxId,
+        },
+      };
+    }),
+  
+  // Delete test user
+  deleteTestUser: publicProcedure
+    .input(z.object({
+      userId: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      const { userId } = input;
+      
+      try {
+        if (userId !== 'test_user_001') {
+          throw new Error('Invalid test user ID');
+        }
+        
+        // In a real app, this would delete the user and all associated data from the database
+        console.log('Test user deletion requested:', {
+          userId,
+          timestamp: new Date().toISOString(),
+        });
+        
+        return {
+          success: true,
+          message: 'Test user and all associated data deleted successfully',
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        console.error('Test user deletion error:', error);
+        throw new Error((error as Error).message || 'Failed to delete test user');
+      }
+    }),
+  
   // Get admin system stats
   getSystemStats: publicProcedure
     .query(async () => {
@@ -197,6 +296,15 @@ export const adminRouter = createTRPCRouter({
           monthlyRecurring: 15420,
           totalRevenue: 89750,
           conversionRate: 12.5,
+        },
+        testUserStats: {
+          exists: true,
+          lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+          dataPoints: {
+            customers: 10,
+            quotes: 30,
+            jobs: 40,
+          },
         },
       };
     }),

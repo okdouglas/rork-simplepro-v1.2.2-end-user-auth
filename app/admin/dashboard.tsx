@@ -2,15 +2,32 @@ import React from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Shield, Users, FileText, Briefcase, Settings, LogOut, Database, Activity, TrendingUp, Clock } from 'lucide-react-native';
+import { Shield, Users, FileText, Briefcase, Settings, LogOut, Database, Activity, TrendingUp, Clock, UserPlus, Eye, Trash2 } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { theme } from '@/constants/theme';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore, TEST_USER_CREDENTIALS } from '@/store/authStore';
+import { useCustomerStore } from '@/store/customerStore';
+import { useQuoteStore } from '@/store/quoteStore';
+import { useJobStore } from '@/store/jobStore';
 import Button from '@/components/Button';
 
 export default function AdminDashboardScreen() {
   const router = useRouter();
-  const { user, logout, isAdmin, hasAdminPermission, isSessionValid, getSessionTimeRemaining } = useAuthStore();
+  const { 
+    user, 
+    logout, 
+    isAdmin, 
+    hasAdminPermission, 
+    isSessionValid, 
+    getSessionTimeRemaining,
+    createTestUser,
+    getTestUsers,
+    deleteTestUser
+  } = useAuthStore();
+  
+  const customerStore = useCustomerStore();
+  const quoteStore = useQuoteStore();
+  const jobStore = useJobStore();
 
   // Redirect if not admin
   React.useEffect(() => {
@@ -31,6 +48,55 @@ export default function AdminDashboardScreen() {
           onPress: async () => {
             await logout();
             router.replace('/auth/login');
+          }
+        }
+      ]
+    );
+  };
+
+  const handleCreateTestUser = async () => {
+    try {
+      const testUser = await createTestUser();
+      
+      // Initialize sample data for test user
+      customerStore.initializeForUser(testUser.id);
+      quoteStore.initializeForUser(testUser.id);
+      jobStore.initializeForUser(testUser.id);
+      
+      Alert.alert(
+        'Test User Created',
+        `Test user account created successfully!\n\nCredentials:\nEmail: ${TEST_USER_CREDENTIALS.email}\nPassword: ${TEST_USER_CREDENTIALS.password}\n\nThe account has been populated with comprehensive sample data.`,
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Failed to create test user: ' + (error as Error).message);
+    }
+  };
+
+  const handleViewTestUser = () => {
+    Alert.alert(
+      'Test User Credentials',
+      `Email: ${TEST_USER_CREDENTIALS.email}\nPassword: ${TEST_USER_CREDENTIALS.password}\n\nYou can login with these credentials to view the sample data.`,
+      [{ text: 'OK' }]
+    );
+  };
+
+  const handleDeleteTestUser = async () => {
+    Alert.alert(
+      'Delete Test User',
+      'Are you sure you want to delete the test user account and all associated data?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteTestUser('test_user_001');
+              Alert.alert('Success', 'Test user account deleted successfully.');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete test user: ' + (error as Error).message);
+            }
           }
         }
       ]
@@ -63,10 +129,20 @@ export default function AdminDashboardScreen() {
   const sessionHours = Math.floor(sessionTimeRemaining / (1000 * 60 * 60));
   const sessionMinutes = Math.floor((sessionTimeRemaining % (1000 * 60 * 60)) / (1000 * 60));
 
+  const testUsers = getTestUsers();
+  const hasTestUser = testUsers.length > 0;
+
+  // Calculate real statistics from stores
+  const totalCustomers = customerStore.customers.length;
+  const totalQuotes = quoteStore.quotes.length;
+  const totalJobs = jobStore.jobs.length;
+  const activeQuotes = quoteStore.getQuotesByStatus('sent').length + quoteStore.getQuotesByStatus('approved').length;
+  const activeJobs = jobStore.getJobsByStatus('scheduled').length + jobStore.getJobsByStatus('in_progress').length;
+
   const adminStats = [
-    { title: 'Total Users', value: '1,234', icon: Users, color: colors.primary, trend: '+12%' },
-    { title: 'Active Quotes', value: '567', icon: FileText, color: colors.secondary, trend: '+8%' },
-    { title: 'Active Jobs', value: '89', icon: Briefcase, color: colors.success, trend: '+15%' },
+    { title: 'Total Users', value: hasTestUser ? '2' : '1', icon: Users, color: colors.primary, trend: hasTestUser ? '+1' : 'Stable' },
+    { title: 'Active Quotes', value: activeQuotes.toString(), icon: FileText, color: colors.secondary, trend: '+8%' },
+    { title: 'Active Jobs', value: activeJobs.toString(), icon: Briefcase, color: colors.success, trend: '+15%' },
     { title: 'System Health', value: '99.9%', icon: Shield, color: colors.warning, trend: 'Stable' },
   ];
 
@@ -133,6 +209,66 @@ export default function AdminDashboardScreen() {
               <Text style={styles.sessionStatusText}>
                 {isSessionValid() ? 'Active' : 'Expiring Soon'}
               </Text>
+            </View>
+          </View>
+
+          {/* Test User Management */}
+          <View style={styles.testUserContainer}>
+            <Text style={styles.sectionTitle}>Test User Management</Text>
+            <View style={styles.testUserCard}>
+              <View style={styles.testUserHeader}>
+                <View style={styles.testUserInfo}>
+                  <Text style={styles.testUserTitle}>Demo Account</Text>
+                  <Text style={styles.testUserSubtitle}>
+                    {hasTestUser ? 'Active with sample data' : 'Not created'}
+                  </Text>
+                </View>
+                <View style={[styles.testUserStatus, hasTestUser ? styles.statusActive : styles.statusInactive]}>
+                  <Text style={styles.statusText}>
+                    {hasTestUser ? 'Active' : 'Inactive'}
+                  </Text>
+                </View>
+              </View>
+              
+              {hasTestUser && (
+                <View style={styles.testUserDetails}>
+                  <Text style={styles.detailText}>Email: {TEST_USER_CREDENTIALS.email}</Text>
+                  <Text style={styles.detailText}>Password: {TEST_USER_CREDENTIALS.password}</Text>
+                  <Text style={styles.detailText}>Data: {totalCustomers} customers, {totalQuotes} quotes, {totalJobs} jobs</Text>
+                </View>
+              )}
+              
+              <View style={styles.testUserActions}>
+                {!hasTestUser ? (
+                  <Button
+                    title="Create Test User"
+                    onPress={handleCreateTestUser}
+                    variant="primary"
+                    size="sm"
+                    icon={UserPlus}
+                    style={styles.actionButton}
+                  />
+                ) : (
+                  <View style={styles.actionButtonGroup}>
+                    <Button
+                      title="View Credentials"
+                      onPress={handleViewTestUser}
+                      variant="outline"
+                      size="sm"
+                      icon={Eye}
+                      style={styles.actionButton}
+                    />
+                    <Button
+                      title="Delete User"
+                      onPress={handleDeleteTestUser}
+                      variant="outline"
+                      size="sm"
+                      icon={Trash2}
+                      style={[styles.actionButton, styles.deleteButton]}
+                    />
+                  </View>
+                )}
+              </View>
             </View>
           </View>
 
@@ -347,6 +483,77 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     color: colors.gray[700],
+  },
+  testUserContainer: {
+    marginBottom: theme.spacing.xl,
+  },
+  testUserCard: {
+    backgroundColor: colors.white,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    shadowColor: colors.gray[900],
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  testUserHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  testUserInfo: {
+    flex: 1,
+  },
+  testUserTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.gray[900],
+  },
+  testUserSubtitle: {
+    fontSize: 14,
+    color: colors.gray[600],
+  },
+  testUserStatus: {
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.sm,
+  },
+  statusActive: {
+    backgroundColor: colors.success + '20',
+  },
+  statusInactive: {
+    backgroundColor: colors.gray[200],
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.gray[700],
+  },
+  testUserDetails: {
+    backgroundColor: colors.gray[50],
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.sm,
+    marginBottom: theme.spacing.sm,
+  },
+  detailText: {
+    fontSize: 12,
+    color: colors.gray[600],
+    marginBottom: theme.spacing.xs,
+  },
+  testUserActions: {
+    marginTop: theme.spacing.sm,
+  },
+  actionButtonGroup: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  actionButton: {
+    flex: 1,
+  },
+  deleteButton: {
+    borderColor: colors.error,
   },
   statsContainer: {
     marginBottom: theme.spacing.xl,
