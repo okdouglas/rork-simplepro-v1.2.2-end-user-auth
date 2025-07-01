@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Plus, Calendar, Users, FileText, Briefcase, TrendingUp, DollarSign, Clock, AlertCircle } from 'lucide-react-native';
+import { Plus, Users, FileText, Briefcase, TrendingUp, DollarSign, AlertCircle } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { theme } from '@/constants/theme';
 import { useAuthStore } from '@/store/authStore';
@@ -23,22 +23,17 @@ export default function DashboardScreen() {
   const { jobs, fetchJobs } = useJobStore();
   const businessStore = useBusinessStore();
 
-  // Redirect if not authenticated
   useEffect(() => {
     if (!isAuthenticated) {
       router.replace('/auth/login');
     }
   }, [isAuthenticated, router]);
 
-  // Initialize data when user changes
   useEffect(() => {
     if (user) {
-      // Initialize stores for the current user
       if (user.id === 'test_user_001') {
-        // Test user gets sample data
         businessStore.initializeForUser(user.id);
       } else if (user.id !== 'admin_user') {
-        // Regular users get empty data
         businessStore.initializeForUser(user.id);
       }
       
@@ -49,25 +44,20 @@ export default function DashboardScreen() {
   }, [user]);
 
   if (!isAuthenticated || !user) {
-    return null; // Will redirect
+    return null;
   }
 
-  // Calculate dashboard statistics
   const totalCustomers = customers.length;
   const totalQuotes = quotes.length;
   const totalJobs = jobs.length;
   
   const pendingQuotes = quotes.filter(q => q.status === 'draft' || q.status === 'sent').length;
-  const approvedQuotes = quotes.filter(q => q.status === 'approved').length;
   const scheduledJobs = jobs.filter(j => j.status === 'scheduled').length;
-  const inProgressJobs = jobs.filter(j => j.status === 'in_progress').length;
   
-  const totalQuoteValue = quotes.reduce((sum, quote) => sum + quote.total, 0);
   const approvedQuoteValue = quotes
     .filter(q => q.status === 'approved' || q.status === 'scheduled' || q.status === 'converted')
     .reduce((sum, quote) => sum + quote.total, 0);
 
-  // Recent quotes and jobs for display
   const recentQuotes = quotes
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 3);
@@ -84,12 +74,10 @@ export default function DashboardScreen() {
     <View style={styles.container}>
       <Header 
         title={isTestUser ? 'Demo Dashboard' : 'Dashboard'}
-        subtitle={isTestUser ? 'Sample data for demonstration' : `Welcome back, ${user.businessProfile?.ownerName || 'User'}`}
       />
       
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
-          {/* Test User Banner */}
           {isTestUser && (
             <View style={styles.testUserBanner}>
               <View style={styles.bannerIcon}>
@@ -104,7 +92,6 @@ export default function DashboardScreen() {
             </View>
           )}
 
-          {/* Empty State for New Users */}
           {!hasData && !isTestUser && (
             <View style={styles.emptyState}>
               <View style={styles.emptyStateIcon}>
@@ -120,7 +107,6 @@ export default function DashboardScreen() {
                   onPress={() => router.push('/customers/new')}
                   variant="primary"
                   size="sm"
-                  icon={<Users size={16} color={colors.white} />}
                   style={styles.emptyStateButton}
                 />
                 <Button
@@ -128,14 +114,12 @@ export default function DashboardScreen() {
                   onPress={() => router.push('/quotes/new')}
                   variant="outline"
                   size="sm"
-                  icon={<FileText size={16} color={colors.primary} />}
                   style={styles.emptyStateButton}
                 />
               </View>
             </View>
           )}
 
-          {/* Stats Grid */}
           {hasData && (
             <View style={styles.statsGrid}>
               <StatCard
@@ -172,7 +156,6 @@ export default function DashboardScreen() {
             </View>
           )}
 
-          {/* Quick Actions */}
           <View style={styles.quickActions}>
             <Text style={styles.sectionTitle}>Quick Actions</Text>
             <View style={styles.actionButtons}>
@@ -218,7 +201,6 @@ export default function DashboardScreen() {
             </View>
           </View>
 
-          {/* Recent Quotes */}
           {recentQuotes.length > 0 && (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
@@ -239,7 +221,6 @@ export default function DashboardScreen() {
             </View>
           )}
 
-          {/* Upcoming Jobs */}
           {upcomingJobs.length > 0 && (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>

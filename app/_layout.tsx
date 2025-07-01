@@ -5,36 +5,29 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { colors } from "@/constants/colors";
-import { Image, StyleSheet, View, Text, Platform } from "react-native";
-import { LOGO_URL } from "@/constants/logo";
+import { Platform } from "react-native";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { trpc, trpcClient } from "@/lib/trpc";
-import { useAuthStore } from "@/store/authStore";
 
 // Fix for debugging overlay registry error
 if (Platform.OS !== 'web') {
-  // Safely handle potential debugging registry issues
-  const ReactNative = require('react-native');
-  if (ReactNative.DevSettings) {
-    // Ensure DevSettings is properly initialized
-    try {
+  try {
+    const ReactNative = require('react-native');
+    if (ReactNative.DevSettings) {
       ReactNative.DevSettings.reload = ReactNative.DevSettings.reload || (() => console.log('Reload not available'));
-    } catch (e) {
-      console.warn('Failed to setup DevSettings:', e);
     }
+  } catch (e) {
+    console.warn('Failed to setup DevSettings:', e);
   }
 }
 
 export const unstable_settings = {
-  // Boot directly to login screen
   initialRouteName: "auth/login",
 };
 
-// Create a client
 const queryClient = new QueryClient();
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -71,36 +64,6 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
-  const { isAuthenticated, user } = useAuthStore();
-
-  // Custom header title component to avoid React rendering issues
-  const HeaderTitle = ({ children }: { children?: string }) => {
-    // Only show logo with title for authenticated users
-    if (!isAuthenticated) {
-      return (
-        <Text style={[styles.headerText, { color: colors.text }]}>
-          {children || 'SimplePro'}
-        </Text>
-      );
-    }
-
-    return (
-      <View style={styles.headerTitleContainer}>
-        <Image source={{ uri: LOGO_URL }} style={styles.logo} />
-        {children ? (
-          <>
-            <View style={[styles.titleSeparator, { backgroundColor: colors.gray[300] }]} />
-            <Text style={[styles.headerText, { color: colors.text }]} numberOfLines={1} ellipsizeMode="tail">
-              {children}
-            </Text>
-          </>
-        ) : (
-          <Text style={[styles.headerText, { color: colors.text }]}>SimplePro</Text>
-        )}
-      </View>
-    );
-  };
-
   return (
     <>
       <StatusBar style="dark" />
@@ -121,133 +84,39 @@ function RootLayoutNav() {
           contentStyle: {
             backgroundColor: colors.background,
           },
-          headerTitle: (props) => <HeaderTitle>{props.children}</HeaderTitle>,
         }}
       >
-        {/* Authentication screens - always available */}
+        {/* Authentication screens */}
         <Stack.Screen name="auth/welcome" options={{ headerShown: false }} />
         <Stack.Screen name="auth/login" options={{ title: "Sign In" }} />
         <Stack.Screen name="auth/register" options={{ title: "Create Account" }} />
         <Stack.Screen name="auth/verify-email" options={{ title: "Verify Email" }} />
         <Stack.Screen name="auth/reset-password" options={{ title: "Reset Password" }} />
         
-        {/* Onboarding screens - only for authenticated users */}
+        {/* Onboarding screens */}
         <Stack.Screen name="onboarding/welcome" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding/business-setup" options={{ title: "Business Setup" }} />
         <Stack.Screen name="onboarding/first-customer" options={{ title: "Add Your First Customer" }} />
         <Stack.Screen name="onboarding/first-quote" options={{ title: "Create Your First Quote" }} />
         <Stack.Screen name="onboarding/complete" options={{ headerShown: false }} />
         
-        {/* Main app screens - only show if authenticated and email verified */}
-        <Stack.Screen 
-          name="(tabs)" 
-          options={{ 
-            headerShown: false,
-            // Only render if authenticated
-            href: isAuthenticated && user?.emailVerified ? undefined : null
-          }} 
-        />
-        <Stack.Screen 
-          name="jobs/[id]" 
-          options={{ 
-            title: "Job Details",
-            href: isAuthenticated && user?.emailVerified ? undefined : null
-          }} 
-        />
-        <Stack.Screen 
-          name="quotes/[id]" 
-          options={{ 
-            title: "Quote Details",
-            href: isAuthenticated && user?.emailVerified ? undefined : null
-          }} 
-        />
-        <Stack.Screen 
-          name="customers/[id]" 
-          options={{ 
-            title: "Customer Details",
-            href: isAuthenticated && user?.emailVerified ? undefined : null
-          }} 
-        />
-        <Stack.Screen 
-          name="notifications" 
-          options={{ 
-            title: "Notifications",
-            href: isAuthenticated && user?.emailVerified ? undefined : null
-          }} 
-        />
-        <Stack.Screen 
-          name="settings" 
-          options={{ 
-            title: "Settings",
-            href: isAuthenticated && user?.emailVerified ? undefined : null
-          }} 
-        />
-        <Stack.Screen 
-          name="help" 
-          options={{ 
-            title: "Help & Support",
-            href: isAuthenticated && user?.emailVerified ? undefined : null
-          }} 
-        />
-        <Stack.Screen 
-          name="profile/billing" 
-          options={{ 
-            title: "Billing & Subscription",
-            href: isAuthenticated && user?.emailVerified ? undefined : null
-          }} 
-        />
-        <Stack.Screen 
-          name="profile/payment-methods" 
-          options={{ 
-            title: "Payment Methods",
-            href: isAuthenticated && user?.emailVerified ? undefined : null
-          }} 
-        />
-        <Stack.Screen 
-          name="profile/payment-methods/add" 
-          options={{ 
-            title: "Add Payment Method",
-            href: isAuthenticated && user?.emailVerified ? undefined : null
-          }} 
-        />
-        <Stack.Screen 
-          name="profile/billing/history" 
-          options={{ 
-            title: "Billing History",
-            href: isAuthenticated && user?.emailVerified ? undefined : null
-          }} 
-        />
-        <Stack.Screen 
-          name="profile/billing/upgrade" 
-          options={{ 
-            title: "Upgrade Plan",
-            href: isAuthenticated && user?.emailVerified ? undefined : null
-          }} 
-        />
+        {/* Main app screens */}
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="jobs/[id]" options={{ title: "Job Details" }} />
+        <Stack.Screen name="quotes/[id]" options={{ title: "Quote Details" }} />
+        <Stack.Screen name="customers/[id]" options={{ title: "Customer Details" }} />
+        <Stack.Screen name="notifications" options={{ title: "Notifications" }} />
+        <Stack.Screen name="settings" options={{ title: "Settings" }} />
+        <Stack.Screen name="help" options={{ title: "Help & Support" }} />
+        <Stack.Screen name="profile/billing" options={{ title: "Billing & Subscription" }} />
+        <Stack.Screen name="profile/payment-methods" options={{ title: "Payment Methods" }} />
+        <Stack.Screen name="profile/payment-methods/add" options={{ title: "Add Payment Method" }} />
+        <Stack.Screen name="profile/billing/history" options={{ title: "Billing History" }} />
+        <Stack.Screen name="profile/billing/upgrade" options={{ title: "Upgrade Plan" }} />
+        
+        {/* Admin screens */}
+        <Stack.Screen name="admin/dashboard" options={{ title: "Admin Dashboard" }} />
       </Stack>
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  headerTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    maxWidth: '80%',
-  },
-  headerText: {
-    fontSize: Platform.OS === 'ios' ? 18 : 16,
-    fontWeight: '700',
-    flexShrink: 1,
-  },
-  logo: {
-    width: 28,
-    height: 28,
-    resizeMode: 'contain',
-  },
-  titleSeparator: {
-    width: 1,
-    height: 16,
-    marginHorizontal: 8,
-  },
-});

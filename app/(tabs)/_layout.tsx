@@ -2,10 +2,8 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { Home, FileText, Briefcase, Users, BarChart3, User } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
-import { theme } from '@/constants/theme';
 import { StyleSheet, View } from 'react-native';
 
-// Custom tab bar icon component for the Quotes tab with green bubble
 const TabBarIcon = ({ name, color, size }: { name: string; color: string; size: number }) => {
   const isQuotes = name === 'quotes';
   
@@ -17,7 +15,6 @@ const TabBarIcon = ({ name, color, size }: { name: string; color: string; size: 
     );
   }
   
-  // Regular icons for other tabs
   switch (name) {
     case 'index':
       return <Home size={size} color={color} />;
@@ -48,17 +45,16 @@ export default function TabLayout() {
           paddingTop: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 0, // Hide labels by setting font size to 0
+          fontSize: 0,
           height: 0,
         },
-        tabBarShowLabel: false, // Explicitly hide labels
-        headerShown: false, // Remove the global header
+        tabBarShowLabel: false,
+        headerShown: false,
         tabBarIcon: ({ color, size }) => {
           return <TabBarIcon name={route.name} color={color} size={size} />;
         },
       })}
     >
-      {/* Tab order: Dashboard, Customers, Quotes, Jobs, Pipeline, Profile */}
       <Tabs.Screen
         name="index"
         options={{
@@ -75,7 +71,7 @@ export default function TabLayout() {
         name="quotes"
         options={{
           title: 'Quotes',
-          tabBarActiveTintColor: colors.white, // White text for quotes tab when active
+          tabBarActiveTintColor: colors.white,
         }}
       />
       <Tabs.Screen
@@ -102,12 +98,12 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   quotesIconContainer: {
-    backgroundColor: '#4CAF50', // Green color for the bubble
+    backgroundColor: '#4CAF50',
     width: 36,
     height: 36,
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: -4, // Adjust position to align with other icons
+    marginBottom: -4,
   },
 });

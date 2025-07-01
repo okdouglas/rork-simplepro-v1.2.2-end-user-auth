@@ -24,9 +24,9 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ user: User }>;
   logout: () => void;
-  register: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, companyName?: string) => Promise<void>;
   verifyEmail: (code: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updateProfile: (profile: Partial<User>) => void;
@@ -76,9 +76,32 @@ const MOCK_USERS: User[] = [
     subscriptionTier: 'pro',
     subscriptionStatus: 'active',
     createdAt: '2024-06-01T00:00:00Z',
-    lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+    lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
   },
 ];
+
+export const validatePassword = (password: string, isLogin: boolean = true): string | null => {
+  if (!password) {
+    return 'Password is required';
+  }
+  
+  if (isLogin) {
+    // More lenient validation for login
+    if (password.length < 6) {
+      return 'Password must be at least 6 characters';
+    }
+  } else {
+    // Stricter validation for registration
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters';
+    }
+    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
+      return 'Password must contain uppercase, lowercase, and number';
+    }
+  }
+  
+  return null;
+};
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -92,7 +115,6 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         
         try {
-          // Simulate API delay
           await new Promise(resolve => setTimeout(resolve, 1000));
           
           const trimmedEmail = email.toLowerCase().trim();
@@ -101,12 +123,13 @@ export const useAuthStore = create<AuthState>()(
           if (trimmedEmail === ADMIN_TEST_CREDENTIALS.email && password === ADMIN_TEST_CREDENTIALS.password) {
             const adminUser = MOCK_USERS.find(u => u.email === ADMIN_TEST_CREDENTIALS.email);
             if (adminUser) {
+              const updatedUser = { ...adminUser, lastLogin: new Date().toISOString() };
               set({ 
-                user: { ...adminUser, lastLogin: new Date().toISOString() }, 
+                user: updatedUser, 
                 isAuthenticated: true, 
                 isLoading: false 
               });
-              return;
+              return { user: updatedUser };
             }
           }
           
@@ -114,12 +137,13 @@ export const useAuthStore = create<AuthState>()(
           if (trimmedEmail === TEST_USER_CREDENTIALS.email && password === TEST_USER_CREDENTIALS.password) {
             const testUser = MOCK_USERS.find(u => u.email === TEST_USER_CREDENTIALS.email);
             if (testUser) {
+              const updatedUser = { ...testUser, lastLogin: new Date().toISOString() };
               set({ 
-                user: { ...testUser, lastLogin: new Date().toISOString() }, 
+                user: updatedUser, 
                 isAuthenticated: true, 
                 isLoading: false 
               });
-              return;
+              return { user: updatedUser };
             }
           }
           
@@ -127,7 +151,7 @@ export const useAuthStore = create<AuthState>()(
           const newUser: User = {
             id: 'user_' + Date.now(),
             email: trimmedEmail,
-            emailVerified: true, // Auto-verify for demo
+            emailVerified: true,
             role: 'user',
             subscriptionTier: 'free',
             subscriptionStatus: 'active',
@@ -140,6 +164,8 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true, 
             isLoading: false 
           });
+          
+          return { user: newUser };
           
         } catch (error) {
           set({ 
@@ -158,11 +184,10 @@ export const useAuthStore = create<AuthState>()(
         });
       },
 
-      register: async (email: string, password: string) => {
+      register: async (email: string, password: string, companyName?: string) => {
         set({ isLoading: true, error: null });
         
         try {
-          // Simulate API delay
           await new Promise(resolve => setTimeout(resolve, 1000));
           
           // Check if user already exists
@@ -175,8 +200,9 @@ export const useAuthStore = create<AuthState>()(
           const newUser: User = {
             id: 'user_' + Date.now(),
             email: email.toLowerCase().trim(),
-            emailVerified: false, // Require email verification for registration
+            emailVerified: false,
             role: 'user',
+            businessProfile: companyName ? { companyName } : undefined,
             subscriptionTier: 'free',
             subscriptionStatus: 'trial',
             createdAt: new Date().toISOString(),
@@ -201,7 +227,6 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         
         try {
-          // Simulate API delay
           await new Promise(resolve => setTimeout(resolve, 1000));
           
           const { user } = get();
@@ -209,7 +234,6 @@ export const useAuthStore = create<AuthState>()(
             throw new Error('No user found');
           }
           
-          // For demo purposes, any 6-digit code works
           if (code.length !== 6) {
             throw new Error('Invalid verification code');
           }
@@ -233,12 +257,8 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         
         try {
-          // Simulate API delay
           await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // For demo purposes, always succeed
           set({ isLoading: false });
-          
         } catch (error) {
           set({ 
             error: 'Failed to send reset email', 

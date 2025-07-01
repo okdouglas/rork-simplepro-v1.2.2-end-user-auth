@@ -7,7 +7,7 @@ import { theme } from '@/constants/theme';
 
 interface HeaderProps {
   title?: string;
-  businessName?: string;
+  subtitle?: string;
   showAdd?: boolean;
   onAddPress?: () => void;
   showExport?: boolean;
@@ -17,7 +17,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({
   title,
-  businessName,
+  subtitle,
   showAdd = false,
   onAddPress,
   showExport = false,
@@ -32,17 +32,14 @@ const Header: React.FC<HeaderProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Title on the left */}
       <View style={styles.titleContainer}>
-        {title ? (
-          <Text style={styles.title}>{title}</Text>
-        ) : (
-          <Text style={styles.businessName}>{businessName || 'SimplePro'}</Text>
+        <Text style={styles.title}>{title || 'SimplePro'}</Text>
+        {subtitle && (
+          <Text style={styles.subtitle}>{subtitle}</Text>
         )}
       </View>
 
       <View style={styles.actionsContainer}>
-        {/* Notification bell on the right */}
         <TouchableOpacity
           style={styles.notificationButton}
           onPress={handleNotificationsPress}
@@ -89,21 +86,21 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray[200],
-    height: Platform.OS === 'ios' ? 50 : 56, // Fixed height for consistency across platforms
+    height: Platform.OS === 'ios' ? 50 : 56,
   },
   titleContainer: {
     flex: 1,
-    alignItems: 'flex-start', // Left align the title
+    alignItems: 'flex-start',
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
     color: colors.gray[900],
   },
-  businessName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.gray[900],
+  subtitle: {
+    fontSize: 14,
+    color: colors.gray[600],
+    marginTop: 2,
   },
   actionsContainer: {
     flexDirection: 'row',

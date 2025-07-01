@@ -37,17 +37,9 @@ export default function RegisterScreen() {
       newErrors.email = 'Cannot register with admin email address';
     }
     
-    // Use centralized password validation for basic checks
     const basicPasswordError = validatePassword(formData.password, false);
     if (basicPasswordError) {
       newErrors.password = basicPasswordError;
-    } else {
-      // Additional validation for user registration (stricter than login)
-      if (formData.password.length < 8) {
-        newErrors.password = 'Password must be at least 8 characters for new accounts';
-      } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
-        newErrors.password = 'Password must contain uppercase, lowercase, and number';
-      }
     }
     
     if (!formData.confirmPassword) {

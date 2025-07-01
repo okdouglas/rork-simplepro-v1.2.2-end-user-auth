@@ -5,20 +5,12 @@ import { useRouter } from 'expo-router';
 import { Eye, EyeOff, Mail, Lock, Shield, User } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { theme } from '@/constants/theme';
-import { useAuthStore, ADMIN_TEST_CREDENTIALS, TEST_USER_CREDENTIALS } from '@/store/authStore';
-import { useCustomerStore } from '@/store/customerStore';
-import { useQuoteStore } from '@/store/quoteStore';
-import { useJobStore } from '@/store/jobStore';
-import { useBusinessStore } from '@/store/businessStore';
+import { useAuthStore } from '@/store/authStore';
 import Button from '@/components/Button';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { login, isLoading, error } = useAuthStore();
-  const customerStore = useCustomerStore();
-  const quoteStore = useQuoteStore();
-  const jobStore = useJobStore();
-  const businessStore = useBusinessStore();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,30 +23,11 @@ export default function LoginScreen() {
     }
 
     try {
-      await login(email.trim(), password);
+      const result = await login(email.trim(), password);
       
-      // Initialize stores based on user type
-      const trimmedEmail = email.toLowerCase().trim();
-      
-      if (trimmedEmail === TEST_USER_CREDENTIALS.email) {
-        // Initialize test user with sample data
-        customerStore.initializeForUser('test_user_001');
-        quoteStore.initializeForUser('test_user_001');
-        jobStore.initializeForUser('test_user_001');
-        businessStore.initializeForUser('test_user_001');
-        
-        router.replace('/(tabs)');
-      } else if (trimmedEmail === ADMIN_TEST_CREDENTIALS.email) {
-        // Admin login - go to admin dashboard
+      if (result.user.role === 'admin') {
         router.replace('/admin/dashboard');
       } else {
-        // Regular user - initialize with empty data
-        const userId = 'user_' + Date.now();
-        customerStore.initializeForUser(userId);
-        quoteStore.initializeForUser(userId);
-        jobStore.initializeForUser(userId);
-        businessStore.initializeForUser(userId);
-        
         router.replace('/(tabs)');
       }
     } catch (error) {
@@ -63,13 +36,13 @@ export default function LoginScreen() {
   };
 
   const handleFillAdminCredentials = () => {
-    setEmail(ADMIN_TEST_CREDENTIALS.email);
-    setPassword(ADMIN_TEST_CREDENTIALS.password);
+    setEmail('admin@simplepro.com');
+    setPassword('Admin007!');
   };
 
   const handleFillTestUserCredentials = () => {
-    setEmail(TEST_USER_CREDENTIALS.email);
-    setPassword(TEST_USER_CREDENTIALS.password);
+    setEmail('testuser@simplepro.com');
+    setPassword('TestUser123!');
   };
 
   const handleForgotPassword = () => {
@@ -87,15 +60,12 @@ export default function LoginScreen() {
         style={styles.keyboardView}
       >
         <View style={styles.content}>
-          {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>Welcome Back</Text>
             <Text style={styles.subtitle}>Sign in to your SimplePro account</Text>
           </View>
 
-          {/* Login Form */}
           <View style={styles.form}>
-            {/* Email Input */}
             <View style={styles.inputContainer}>
               <View style={styles.inputWrapper}>
                 <Mail size={20} color={colors.gray[500]} style={styles.inputIcon} />
@@ -112,7 +82,6 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            {/* Password Input */}
             <View style={styles.inputContainer}>
               <View style={styles.inputWrapper}>
                 <Lock size={20} color={colors.gray[500]} style={styles.inputIcon} />
@@ -139,19 +108,16 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            {/* Error Message */}
             {error && (
               <View style={styles.errorContainer}>
                 <Text style={styles.errorText}>{error}</Text>
               </View>
             )}
 
-            {/* Forgot Password */}
             <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPassword}>
               <Text style={styles.forgotPasswordText}>Forgot your password?</Text>
             </TouchableOpacity>
 
-            {/* Login Button */}
             <Button
               title="Sign In"
               onPress={handleLogin}
@@ -159,7 +125,6 @@ export default function LoginScreen() {
               style={styles.loginButton}
             />
 
-            {/* Demo Credentials */}
             <View style={styles.demoSection}>
               <Text style={styles.demoTitle}>Demo Accounts</Text>
               
@@ -180,7 +145,6 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Sign Up Link */}
             <View style={styles.signUpContainer}>
               <Text style={styles.signUpText}>Don't have an account? </Text>
               <TouchableOpacity onPress={handleSignUp}>
